@@ -1,0 +1,13 @@
+.vscode/settings.json
+bin/*
+lib/*
+build/*
+media/*
+.idea/*
+cmake-build-debug/*
+cmake-build-debug-remote/*
+*__pycache__/
+*.png
+figs
+metrics_plotting_configs/*
+
