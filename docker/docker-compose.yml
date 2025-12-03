@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  obvi_slam:
+    build: .
+    image: obvi_slam_custom
+    container_name: obvi_slam_container
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    network_mode: "host"
+    ipc: host
+    environment:
+      - DISPLAY=$DISPLAY
+      - QT_X11_NO_MITSHM=1
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ./my_data:/root/data
+      - ./ObVi-SLAM:/root/catkin_ws/src/ObVi-SLAM
+    stdin_open: true
+    tty: true
