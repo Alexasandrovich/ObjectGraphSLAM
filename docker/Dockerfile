@@ -104,24 +104,50 @@ RUN pip3 install \
     empy
 
 # 6. Сборка основного проекта (ObVi-SLAM)
-# Только теперь мы идем в catkin_ws
 WORKDIR /root/catkin_ws/src
 
-# Клонируем ObVi-SLAM (это единственный пакет, который увидит catkin_make)
+# Клонируем (Docker использует кэш здесь, если ничего не менялось)
 RUN git clone https://github.com/ut-amrl/ObVi-SLAM.git
+WORKDIR /root/catkin_ws/src/ObVi-SLAM/src
+RUN git clone https://github.com/ut-amrl/amrl_shared_lib.git shared && \
+    cd shared && \
+    git checkout glogTimer
+
+RUN apt-get update && apt-get install -y \
+    libceres-dev \
+    libpcl-dev \
+    libtbb-dev \
+    libyaml-cpp-dev \
+    libboost-filesystem-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Перемещаем ObVi-SLAM в external
+RUN mv /root/catkin_ws/src/ObVi-SLAM /root/external/
+
+# Собираем ObVi-SLAM вручную
+WORKDIR /root/external/ObVi-SLAM
+RUN . /opt/ros/noetic/setup.sh && \
+    export ROS_PACKAGE_PATH=/root/external/amrl_msgs:/root/external/ORB_SLAM2/Examples/ROS/ORB_SLAM2:$(pwd):$ROS_PACKAGE_PATH && \
+    mkdir build && cd build && \
+    cmake .. -DROS_BUILD_TYPE=Release && \
+    make -j$(nproc)
+
+# Возвращаемся в catkin_ws для сборки YOLO
+WORKDIR /root/catkin_ws/src
 
 # YOLOv5
 RUN git clone https://github.com/ut-amrl/yolov5.git && \
     cd yolov5 && \
     git checkout ROS
 
-# Сборка ROS пакетов
+# Сборка ROS пакетов (Здесь остался только YOLO)
 WORKDIR /root/catkin_ws
 RUN /bin/bash -c ". /opt/ros/noetic/setup.bash && \
     export ROS_PACKAGE_PATH=/root/external/amrl_msgs:/root/external/ORB_SLAM2/Examples/ROS/ORB_SLAM2:\$ROS_PACKAGE_PATH && \
     catkin_make -DCMAKE_BUILD_TYPE=Release"
 
-ENV ROS_PACKAGE_PATH=/root/external/amrl_msgs:/root/external/ORB_SLAM2/Examples/ROS/ORB_SLAM2:/root/catkin_ws/src:/opt/ros/noetic/share
+# --- ОБНОВЛЕННЫЙ ENV ---
+ENV ROS_PACKAGE_PATH=/root/external/ObVi-SLAM:/root/external/amrl_msgs:/root/external/ORB_SLAM2/Examples/ROS/ORB_SLAM2:/root/catkin_ws/src:/opt/ros/noetic/share
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY run_pipeline.sh /usr/local/bin/run_pipeline.sh
