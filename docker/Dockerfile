@@ -61,30 +61,30 @@ RUN git clone https://github.com/stevenlovegrove/Pangolin.git && \
     make install && \
     cd ../.. && rm -rf Pangolin
 
-# 3. Настройка рабочего пространства ROS
-WORKDIR /root/catkin_ws/src
+# Создаем ссылку python -> python3 (нужно для старых скриптов ROS)
+RUN ln -s /usr/bin/python3 /usr/bin/python
 
-# --- ВАЖНОЕ ИЗМЕНЕНИЕ: Ручная сборка amrl_msgs ---
-# Мы собираем его через make, а потом скрываем от catkin через .CATKIN_IGNORE
+# Создаем папку для внешних библиотек (НЕ catkin_ws)
+RUN mkdir -p /root/external
+
+# --- Сборка amrl_msgs (ВНЕШНЯЯ) ---
+WORKDIR /root/external
+# Клонируем и собираем здесь, чтобы catkin_make не видел исходники
 RUN git clone https://github.com/ut-amrl/amrl_msgs.git && \
     cd amrl_msgs && \
     git checkout orbSlamSwitchTraj && \
-    make && \
-    touch .CATKIN_IGNORE
+    . /opt/ros/noetic/setup.sh && \
+    export ROS_PACKAGE_PATH=$(pwd):$ROS_PACKAGE_PATH && \
+    make
 
-# Клонируем остальные репозитории
+# --- Сборка ORB-SLAM2 (ВНЕШНЯЯ) ---
+WORKDIR /root/external
 RUN git clone https://github.com/ut-amrl/ORB_SLAM2.git && \
     cd ORB_SLAM2 && \
-    git checkout writeTimestamps
-
-RUN git clone https://github.com/ut-amrl/ObVi-SLAM.git
-
-# 4. Сборка ORB-SLAM2 (Вручную)
-WORKDIR /root/catkin_ws/src/ORB_SLAM2
-RUN chmod +x build.sh
-# Фикс для usleep
-RUN sed -i '1i#include <unistd.h>' src/System.cc || true
-RUN ./build.sh
+    git checkout writeTimestamps && \
+    chmod +x build.sh && \
+    sed -i '1i#include <unistd.h>' src/System.cc || true && \
+    ./build.sh
 
 # 5. Установка Python-зависимостей для YOLO
 RUN pip3 install --upgrade pip
@@ -103,18 +103,25 @@ RUN pip3 install \
     rospkg \
     empy
 
-# 6. Сборка ROS пакетов (Обычный catkin_make)
+# 6. Сборка основного проекта (ObVi-SLAM)
+# Только теперь мы идем в catkin_ws
+WORKDIR /root/catkin_ws/src
+
+# Клонируем ObVi-SLAM (это единственный пакет, который увидит catkin_make)
+RUN git clone https://github.com/ut-amrl/ObVi-SLAM.git
+
+# Сборка ROS пакетов
 WORKDIR /root/catkin_ws
-# Мы добавляем amrl_msgs в ROS_PACKAGE_PATH вручную перед сборкой, чтобы ObVi-SLAM его нашел
-RUN /bin/bash -c "source /opt/ros/noetic/setup.bash && \
-    export ROS_PACKAGE_PATH=/root/catkin_ws/src/amrl_msgs:\$ROS_PACKAGE_PATH && \
+# Мы добавляем пути к внешним библиотекам в ROS_PACKAGE_PATH перед сборкой
+RUN /bin/bash -c ". /opt/ros/noetic/setup.bash && \
+    export ROS_PACKAGE_PATH=/root/external/amrl_msgs:/root/external/ORB_SLAM2/Examples/ROS/ORB_SLAM2:\$ROS_PACKAGE_PATH && \
     catkin_make -DCMAKE_BUILD_TYPE=Release"
 
 # 7. Настройка .bashrc
-# Прописываем пути навсегда, включая legacy пакет amrl_msgs и ORB_SLAM2 examples
+# Прописываем пути навсегда, чтобы при входе в контейнер всё работало
 RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
 RUN echo "source /root/catkin_ws/devel/setup.bash" >> ~/.bashrc
-RUN echo "export ROS_PACKAGE_PATH=/root/catkin_ws/src/amrl_msgs:/root/catkin_ws/src/ORB_SLAM2/Examples/ROS/ORB_SLAM2:\$ROS_PACKAGE_PATH" >> ~/.bashrc
+RUN echo "export ROS_PACKAGE_PATH=/root/external/amrl_msgs:/root/external/ORB_SLAM2/Examples/ROS/ORB_SLAM2:\$ROS_PACKAGE_PATH" >> ~/.bashrc
 
 WORKDIR /root
 CMD ["bash"]
