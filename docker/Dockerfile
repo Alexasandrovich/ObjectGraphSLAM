@@ -110,18 +110,25 @@ WORKDIR /root/catkin_ws/src
 # Клонируем ObVi-SLAM (это единственный пакет, который увидит catkin_make)
 RUN git clone https://github.com/ut-amrl/ObVi-SLAM.git
 
+# YOLOv5
+RUN git clone https://github.com/ut-amrl/yolov5.git && \
+    cd yolov5 && \
+    git checkout ROS
+
 # Сборка ROS пакетов
 WORKDIR /root/catkin_ws
-# Мы добавляем пути к внешним библиотекам в ROS_PACKAGE_PATH перед сборкой
 RUN /bin/bash -c ". /opt/ros/noetic/setup.bash && \
     export ROS_PACKAGE_PATH=/root/external/amrl_msgs:/root/external/ORB_SLAM2/Examples/ROS/ORB_SLAM2:\$ROS_PACKAGE_PATH && \
     catkin_make -DCMAKE_BUILD_TYPE=Release"
 
-# 7. Настройка .bashrc
-# Прописываем пути навсегда, чтобы при входе в контейнер всё работало
-RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
-RUN echo "source /root/catkin_ws/devel/setup.bash" >> ~/.bashrc
-RUN echo "export ROS_PACKAGE_PATH=/root/external/amrl_msgs:/root/external/ORB_SLAM2/Examples/ROS/ORB_SLAM2:\$ROS_PACKAGE_PATH" >> ~/.bashrc
+ENV ROS_PACKAGE_PATH=/root/external/amrl_msgs:/root/external/ORB_SLAM2/Examples/ROS/ORB_SLAM2:/root/catkin_ws/src:/opt/ros/noetic/share
+
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY run_pipeline.sh /usr/local/bin/run_pipeline.sh
+
+RUN chmod +x /usr/local/bin/entrypoint.sh && \
+    chmod +x /usr/local/bin/run_pipeline.sh
 
 WORKDIR /root
-CMD ["bash"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/usr/local/bin/run_pipeline.sh"]

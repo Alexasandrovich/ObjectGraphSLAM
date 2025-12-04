@@ -21,7 +21,7 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=all
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
-      - ./my_data:/root/data
-      - ./ObVi-SLAM:/root/catkin_ws/src/ObVi-SLAM
+      - ../data:/root/full_data
+      - ../original_data:/root/data
     stdin_open: true
     tty: true
