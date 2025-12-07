@@ -42,15 +42,10 @@ echo "Build SUCCESS."
 # 3. ПОДГОТОВКА ДАННЫХ
 echo "[DATA] Preparing data..."
 
-# 3.1 Конвертация видео (bag пересоздастся с правильным временем)
+# 3. Конвертация видео
 python3 /root/scripts/convert_video.py \
     "$DATA_DIR/raw/video.mp4" \
     "$DATA_DIR/my_video.bag"
-
-# 3.2 Генерация конфигов
-python3 /root/scripts/gen_config.py \
-    "$CALIB_DIR" \
-    "$PROJECT_DIR/config"
 
 # ======================================================
 # 4. ЗАПУСК ROS
