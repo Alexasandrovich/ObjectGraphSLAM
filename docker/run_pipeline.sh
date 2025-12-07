@@ -45,7 +45,7 @@ echo "[DATA] Preparing data..."
 # 3.1 Конвертация видео (bag пересоздастся с правильным временем)
 python3 /root/scripts/convert_video.py \
     "$DATA_DIR/raw/video.mp4" \
-    "$DATA_DIR/raw/my_video.bag"
+    "$DATA_DIR/my_video.bag"
 
 # 3.2 Генерация конфигов
 python3 /root/scripts/gen_config.py \
@@ -92,7 +92,7 @@ if [ -f "$ORB_OUT_DIR/KeyFrameTrajectory.txt" ]; then
 fi
 
 if [ ! -s "$ORB_OUT_DIR/CameraTrajectory.txt" ]; then
-    echo "❌ FAILURE: Trajectory not created. Check frontend.log"
+    echo "FAILURE: Trajectory not created. Check frontend.log"
     echo "Most likely reasons:"
     echo "1. Video frame rate/resolution mismatch in custom.yaml"
     echo "2. ORB-SLAM2 initialization failed (needs texture/movement)"

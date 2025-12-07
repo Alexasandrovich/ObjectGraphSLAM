@@ -3,17 +3,20 @@ import rosbag
 import rospy
 import sys
 import os
+import time
 from cv_bridge import CvBridge
-from sensor_msgs.msg import Image
 
 def convert(video_path, bag_path, topic='/camera/image_raw', target_fps=30.0):
     if not os.path.exists(video_path):
         print(f"Error: Video not found at {video_path}")
         sys.exit(1)
 
-    # Удаляем старый bag, если есть, чтобы перезаписать корректно
+    # Удаляем старый bag, чтобы не дописывать в конец
     if os.path.exists(bag_path):
-        os.remove(bag_path)
+        try:
+            os.remove(bag_path)
+        except OSError:
+            pass
 
     print(f"Converting {video_path} -> {bag_path}...")
 
@@ -23,13 +26,13 @@ def convert(video_path, bag_path, topic='/camera/image_raw', target_fps=30.0):
 
     fps = cap.get(cv2.CAP_PROP_FPS)
     if fps <= 0 or fps > 1000:
+        print(f"Warning: Cannot read FPS. Defaulting to {target_fps}")
         fps = target_fps
 
     print(f"Video FPS: {fps}")
 
-    # [FIX] Начинаем не с 0.0, а с фиксированного времени (например, 1000.0 секунд),
-    # чтобы rosbag не ругался на invalid time.
-    start_time_sec = 1000.0
+    # Берем текущее время системы как точку старта.
+    start_time = time.time()
 
     frame_id = 0
     while cap.isOpened():
@@ -37,8 +40,8 @@ def convert(video_path, bag_path, topic='/camera/image_raw', target_fps=30.0):
         if not ret:
             break
 
-        # Считаем время: старт + (номер кадра / fps)
-        current_time = float(start_time_sec) + (float(frame_id) / fps)
+        # Считаем время: Старт + (смещение по кадрам)
+        current_time = start_time + (float(frame_id) / fps)
         timestamp = rospy.Time.from_sec(current_time)
 
         msg = bridge.cv2_to_imgmsg(frame, encoding='bgr8')
@@ -53,7 +56,7 @@ def convert(video_path, bag_path, topic='/camera/image_raw', target_fps=30.0):
 
     cap.release()
     bag.close()
-    print(f"\nDone. Saved {frame_id} frames to {bag_path}")
+    print(f"\nDone. Saved {frame_id} frames.")
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
