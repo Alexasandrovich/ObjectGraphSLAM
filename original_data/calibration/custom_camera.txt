@@ -1,0 +1,2 @@
+camera_id, img_width, img_height, mat_00, mat_01, mat_02, mat_10, mat_11, mat_12, mat_20, mat_21, mat_22
+1, 1920, 1080, 1174.0, 0, 960.0, 0, 1174.0, 540.0, 0, 0, 1

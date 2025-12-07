@@ -34,7 +34,7 @@ cd build
 if [ ! -f "Makefile" ]; then cmake .. -DROS_BUILD_TYPE=Release; fi
 
 if ! make -j$(nproc); then
-    echo "❌ Build FAILED."
+    echo "Build FAILED."
     exit 1
 fi
 echo "Build SUCCESS."
@@ -65,9 +65,8 @@ echo "------------------------------------------------"
 echo "[STEP 3] Starting Frontend..."
 rosrun ORB_SLAM2 Mono \
     /root/external/ORB_SLAM2/Vocabulary/ORBvoc.txt \
-    "$CALIB_DIR/custom.yaml" \
-    "$ORB_OUT_DIR" \
-    > /root/frontend.log 2>&1 &
+    "$DATA_DIR/calibration/custom.yaml" \
+    "$DATA_DIR/orb_out" &
 FRONTEND_PID=$!
 sleep 5
 
@@ -75,7 +74,14 @@ echo "------------------------------------------------"
 echo "[STEP 4] Playing Data..."
 BAG_PATH="$DATA_DIR/my_video.bag"
 
-rosbag play "$BAG_PATH" --clock -r 1.0 -d 2
+rosbag play "$BAG_PATH" --clock -r 1.0 -d 2 &
+
+sleep 2
+echo "--- Active Topics ---"
+rostopic list
+echo "--- Frequency of /camera/image_raw ---"
+rostopic hz /camera/image_raw -w 3 &
+HZ_PID=$!
 
 echo "[INFO] Bag finished. Stopping Frontend..."
 kill -SIGINT $FRONTEND_PID 2>/dev/null

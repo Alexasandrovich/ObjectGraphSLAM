@@ -1,0 +1,20 @@
+%YAML:1.0
+---
+Camera.type: "PinHole"
+Camera.fx: 1174.0
+Camera.fy: 1174.0
+Camera.cx: 960.0
+Camera.cy: 540.0
+Camera.k1: 0.0
+Camera.k2: 0.0
+Camera.p1: 0.0
+Camera.p2: 0.0
+Camera.width: 1920
+Camera.height: 1080
+Camera.fps: 30.0
+Camera.RGB: 1
+ORBextractor.nFeatures: 2000
+ORBextractor.scaleFactor: 1.2
+ORBextractor.nLevels: 8
+ORBextractor.iniThFAST: 20
+ORBextractor.minThFAST: 7
