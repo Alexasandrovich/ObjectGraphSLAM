@@ -21,9 +21,12 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=all
     volumes:
       - ../src/:/root/external/ut_vslam/src
+      - ../scripts:/root/scripts
+      - ../include/:/root/external/ut_vslam/include
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ../data:/root/full_data
       - ../original_data:/root/data
+      - ../config:/root/external/ut_vslam/config
       - ../build_cache:/root/external/ut_vslam/build
     stdin_open: true
     tty: true

@@ -4,7 +4,7 @@
 
 #ifndef UT_VSLAM_CONFIG_FILE_STORAGE_IO_H
 #define UT_VSLAM_CONFIG_FILE_STORAGE_IO_H
-
+#include <string>
 #include <file_io/cv_file_storage/file_storage_io_utils.h>
 #include <file_io/cv_file_storage/vslam_basic_types_file_storage_io.h>
 #include <refactoring/configuration/full_ov_slam_config.h>
@@ -1894,7 +1894,7 @@ void readConfiguration(const std::string &config_file_name,
                   "update your config file to the latest format and try again.";
     throw std::invalid_argument(
         "Incorrect schema type; should match current config schema version. "
-        "Please update your config to the latest format. ");
+        "Please update your config to the latest format, must be " + std::to_string(kCurrentConfigSchemaVersion));
   }
 }
 
