@@ -20,8 +20,11 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
     volumes:
+      - ../src/:/root/external/ut_vslam/src
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ../data:/root/full_data
       - ../original_data:/root/data
+      - ../build_cache:/root/external/ut_vslam/build
     stdin_open: true
     tty: true
+    command: /bin/bash -c "/usr/local/bin/run_pipeline.sh"
