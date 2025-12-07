@@ -80,11 +80,19 @@ RUN git clone https://github.com/ut-amrl/amrl_msgs.git && \
 # --- Сборка ORB-SLAM2 (ВНЕШНЯЯ) ---
 WORKDIR /root/external
 RUN git clone https://github.com/ut-amrl/ORB_SLAM2.git && \
-    cd ORB_SLAM2 && \
-    git checkout writeTimestamps && \
+    cd ORB_SLAM2 && git checkout writeTimestamps && \
     chmod +x build.sh && \
+    # 1. Фикс unistd.h и сборка библиотеки
     sed -i '1i#include <unistd.h>' src/System.cc || true && \
-    ./build.sh
+    ./build.sh && \
+    # 2. Сборка ROS Wrapper
+    cd Examples/ROS/ORB_SLAM2 && \
+    mkdir build && cd build && \
+    . /opt/ros/noetic/setup.sh && \
+    # добавляем текущую папку в путь, чтобы rosbuild нашел manifest.xml
+    export ROS_PACKAGE_PATH=/root/external/ORB_SLAM2/Examples/ROS/ORB_SLAM2:$ROS_PACKAGE_PATH && \
+    cmake .. -DROS_BUILD_TYPE=Release && \
+    make -j$(nproc)
 
 # 5. Установка Python-зависимостей для YOLO
 RUN pip3 install --upgrade pip

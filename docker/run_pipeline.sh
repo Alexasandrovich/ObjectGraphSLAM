@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# Функция очистки
 cleanup() {
     echo "[INFO] Stopping background processes..."
     kill $(jobs -p) 2>/dev/null
@@ -13,62 +12,76 @@ echo "[INFO] Configuring Environment..."
 echo "========================================"
 
 source /opt/ros/noetic/setup.bash
-
-# 1. CRITICAL FIX:
-# Мы должны явно добавить путь к ObVi-SLAM, иначе rosbuild сойдет с ума при сборке.
-# Порядок важен: сначала сам проект, потом зависимости.
-export ROS_PACKAGE_PATH=/root/external/ObVi-SLAM:/root/external/amrl_msgs:/root/external/ORB_SLAM2/Examples/ROS/ORB_SLAM2:$ROS_PACKAGE_PATH
-
 if [ -f "/root/catkin_ws/devel/setup.bash" ]; then
     source /root/catkin_ws/devel/setup.bash
-    # Добавляем workspace
-    export ROS_PACKAGE_PATH=/root/catkin_ws/src:$ROS_PACKAGE_PATH
 fi
 
-# Обновляем индекс пакетов, чтобы ROS увидел новые пути
+# 1. rosbuild требует, чтобы имя папки совпадало с именем пакета (ut_vslam)
+if [ -d "/root/external/ObVi-SLAM" ]; then
+    mv /root/external/ObVi-SLAM /root/external/ut_vslam
+fi
+
+# 2. ЭКСПОРТ ПУТЕЙ (Теперь путь ведет к ut_vslam)
+export ROS_PACKAGE_PATH=/root/external/ut_vslam:/root/external/amrl_msgs:/root/external/ORB_SLAM2/Examples/ROS/ORB_SLAM2:/root/catkin_ws/src:$ROS_PACKAGE_PATH
+
+# Обновляем базу пакетов ROS
 rospack profile > /dev/null
 
-# ======================================================
-# [SELF-HEALING] Проверка и сборка
-# ======================================================
-echo "[CHECK] Verifying ObVi-SLAM packages..."
-
-# Проверяем наличие frontend пакета
-if ! rospack find obvislam_frontend > /dev/null 2>&1; then
-    echo "[ERROR] Package 'obvislam_frontend' NOT found (or not compiled)!"
-else
-    echo "[INFO] Package 'obvislam_frontend' found."
+# 3. ПОДГОТОВКА СЛОВАРЯ (Frontend)
+if [ ! -f "/root/external/ORB_SLAM2/Vocabulary/ORBvoc.txt" ]; then
+    echo "[INFO] Unzipping ORB Vocabulary..."
+    cd /root/external/ORB_SLAM2/Vocabulary
+    tar -xf ORBvoc.txt.tar.gz
 fi
+
+# ======================================================
+# ЗАПУСК ПРОЦЕССОВ
 # ======================================================
 
 echo "------------------------------------------------"
-echo "[STEP 1/4] Starting ROS Core..."
+echo "[STEP 1/5] Starting ROS Core..."
 roscore > /root/roscore.log 2>&1 &
 ROSCORE_PID=$!
 sleep 5
 
-echo "[STEP 2/4] Starting YOLOv5 Object Detector..."
+echo "[STEP 2/5] Starting YOLOv5..."
 cd /root/catkin_ws/src/yolov5
 python3 -u detect_ros.py --weights yolov5m.pt --img 640 --conf 0.5 2>&1 | sed "s/^/[YOLO] /" &
-YOLO_PID=$!
-
-echo "[INFO] Waiting 15s for YOLO model to load..."
 sleep 15
 
 echo "------------------------------------------------"
-echo "[STEP 3/4] Running ObVi-SLAM Frontend..."
-cd /root
-rosrun obvislam_frontend run_orb_slam --config_file /root/data/run_kitti.json
+echo "[STEP 3/5] Starting Frontend (ORB-SLAM2 Mono)..."
+# Мы используем стандартный конфиг KITTI00-02.yaml, который уже есть в репозитории
+# Аргументы: VOCABULARY  SETTINGS_FILE  OUTPUT_FOLDER
+rosrun ORB_SLAM2 Mono \
+    /root/external/ORB_SLAM2/Vocabulary/ORBvoc.txt \
+    /root/external/ORB_SLAM2/Examples/Monocular/KITTI00-02.yaml \
+    /root/data/orb_out \
+    > /root/frontend.log 2>&1 &
+
+FRONTEND_PID=$!
+echo "[INFO] Frontend started in background (PID: $FRONTEND_PID). Waiting for ready..."
+sleep 5
 
 echo "------------------------------------------------"
-echo "[STEP 4/4] Running ObVi-SLAM Backend..."
-rosrun obvislam_backend run_backend --config_file /root/data/run_kitti.json
+echo "[STEP 4/5] Playing ROS Bag (Input Data)..."
+# Запускаем воспроизведение видео. Frontend будет обрабатывать его в реальном времени.
+rosbag play /root/data/original_data/kitti.bag --clock
+
+echo "[INFO] Bag finished. Stopping Frontend..."
+# Даем время на сохранение результатов
+sleep 5
+kill $FRONTEND_PID 2>/dev/null
 
 echo "------------------------------------------------"
-echo "[SUCCESS] Pipeline Finished! Results are in /root/data/ut_vslam_results"
+echo "[STEP 5/5] Running Backend (ut_vslam)..."
+# Запускаем построение карты
+rosrun ut_vslam offline_object_visual_slam_main /root/data/run_kitti.json
+
+echo "------------------------------------------------"
+echo "[SUCCESS] Finished! Check /root/data/ut_vslam_results"
 echo "------------------------------------------------"
 echo "[INFO] To visualize: open new terminal and run: rviz"
 echo "[INFO] Press Ctrl+C to stop container."
 
-# Держим контейнер активным
 wait $ROSCORE_PID
