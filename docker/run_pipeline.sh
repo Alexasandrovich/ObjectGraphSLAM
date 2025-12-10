@@ -71,13 +71,20 @@ roscore > /root/roscore.log 2>&1 &
 ROSCORE_PID=$!
 sleep 3
 
-echo "[STEP 2] Starting YOLOv5..."
+echo "[STEP 2] Starting topic relay for YOLO..."
+# YOLO слушает /camera/right/image_raw, а bag публикует /camera/image_raw
+# Делаем relay для совместимости
+rosrun topic_tools relay /camera/image_raw /camera/right/image_raw &
+RELAY_PID=$!
+sleep 2
+
+echo "[STEP 3] Starting YOLOv5..."
 cd /root/catkin_ws/src/yolov5
 python3 -u detect_ros.py --weights yolov5m.pt --img 640 --conf 0.5 2>&1 | sed "s/^/[YOLO] /" &
 sleep 5
 
 echo "------------------------------------------------"
-echo "[STEP 3] Starting Frontend..."
+echo "[STEP 4] Starting Frontend..."
 # Очищаем старые результаты
 rm -f "$ORB_OUT_DIR/KeyFrameTrajectory.txt" "$ORB_OUT_DIR/CameraTrajectory.txt"
 
@@ -89,7 +96,7 @@ FRONTEND_PID=$!
 sleep 5
 
 echo "------------------------------------------------"
-echo "[STEP 4] Playing Data..."
+echo "[STEP 5] Playing Data..."
 # Запускаем воспроизведение
 # -r 1.0 : скорость 1x (можно 0.5 если теряется трек)
 # -d 2   : задержка 2 сек перед стартом
@@ -115,7 +122,7 @@ if [ ! -s "$ORB_OUT_DIR/CameraTrajectory.txt" ]; then
 fi
 
 echo "------------------------------------------------"
-echo "[STEP 5] Running Backend..."
+echo "[STEP 6] Running Backend..."
 
 # Используем сгенерированный конфиг /root/data/custom_config.json
 MAIN_CONFIG="/root/data/running_config.json"
